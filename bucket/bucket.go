@@ -12,8 +12,3 @@ type Bucket struct {
 	LastRefillTime time.Time
 	Mu             sync.Mutex
 }
-
-type Buckets struct {
-	Ip string
-	Bucket
-}
