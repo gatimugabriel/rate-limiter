@@ -26,9 +26,9 @@ func RateLimit(next http.Handler) http.Handler {
 			time.Sleep(1 * time.Second)
 			mu.Lock()
 
-			fmt.Println("Killer in action...")
 			for ip, client := range clients {
 				if time.Since(client.LastSeen) > 1*time.Minute {
+					fmt.Println("\t Killed client...", ip)
 					delete(clients, ip)
 				}
 			}
@@ -42,46 +42,47 @@ func RateLimit(next http.Handler) http.Handler {
 			log.Fatal("Missing IP")
 		}
 
-		fmt.Println("\t |---------- Clients(Before) ----------|\n  \t")
-		for ip, client := range clients {
-			fmt.Printf("\t IP: %s, Bucket: %+v\n", ip, client.Bucket)
-		}
+		fmt.Println("clients", clients)
 
 		mu.Lock()
 		if _, exists := clients[ip]; !exists {
-			fmt.Println("New client initiated")
+			fmt.Println("clients[ip]", clients[ip])
+			fmt.Println(exists)
+			fmt.Println("New client initiated\n ")
 			// create client bucket
 			clients[ip] = &Client{
 				Bucket: bucket.CreateBucket(10, 1),
 			}
 
+			fmt.Println("created client", clients[ip])
+			fmt.Println("clients", &clients)
+
 			// ---@routine -> start the bucket refill ()
-			go clients[ip].Bucket.StartRefillBucket()
+			//clients[ip].Bucket.StartRefillBucket()
 		} else {
-			fmt.Println("Client retrieved, process continue...")
+			fmt.Println("Client retrieved, process continue...\n ")
 		}
 
-		fmt.Println("\t |---------- Clients(After) ----------|\n\t")
-		for ip, client := range clients {
-			fmt.Printf("\t IP: %s, Bucket: %+v\n", ip, client.Bucket)
-		}
+		//fmt.Println("\t |---------- Clients(After) ----------|\n\t")
+		//for ipAddr, client := range clients {
+		//	fmt.Printf("\t IP: %s, Bucket: %+v\n", ipAddr, client.Bucket)
+		//}
 
 		clients[ip].LastSeen = time.Now()
 
-		if clients[ip].Bucket.Tokens == 0 {
-			mu.Unlock()
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, err := fmt.Fprintf(w, "Too many requests for IP: %s", ip)
-			if err != nil {
-				return
-			}
-			return
-		}
-		mu.Unlock()
-
+		//if clients[ip].Bucket.Tokens == 0 {
+		//	mu.Unlock()
+		//	w.WriteHeader(http.StatusTooManyRequests)
+		//	_, err := fmt.Fprintf(w, "Too many requests for IP: %s", ip)
+		//	if err != nil {
+		//		return
+		//	}
+		//	return
+		//}
+		
 		// Decrement token for allowed request
-		clients[ip].Bucket.Tokens--
-
+		//clients[ip].Bucket.Tokens--
+		mu.Unlock()
 		next.ServeHTTP(w, r)
 	})
 }
