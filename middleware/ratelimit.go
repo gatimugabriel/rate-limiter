@@ -9,22 +9,21 @@ import (
 	"time"
 )
 
+var (
+	clients map[string]*bucket.Client
+	Mu      sync.Mutex
+)
+
+func init() {
+	clients = make(map[string]*bucket.Client)
+}
+
 func RateLimit(next http.Handler) http.Handler {
-	type Client struct {
-		Bucket   *bucket.Bucket
-		LastSeen time.Time
-	}
-
-	var (
-		mu      sync.Mutex
-		clients = make(map[string]*Client)
-	)
-
-	// ---@routine -> kill old clients
+	//---@routine -> kill old clients
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
-			mu.Lock()
+			Mu.Lock()
 
 			for ip, client := range clients {
 				if time.Since(client.LastSeen) > 1*time.Minute {
@@ -32,7 +31,7 @@ func RateLimit(next http.Handler) http.Handler {
 					delete(clients, ip)
 				}
 			}
-			mu.Unlock()
+			Mu.Unlock()
 		}
 	}()
 
@@ -42,47 +41,37 @@ func RateLimit(next http.Handler) http.Handler {
 			log.Fatal("Missing IP")
 		}
 
-		fmt.Println("clients", clients)
+		Mu.Lock()
+		defer Mu.Unlock()
 
-		mu.Lock()
-		if _, exists := clients[ip]; !exists {
-			fmt.Println("clients[ip]", clients[ip])
-			fmt.Println(exists)
-			fmt.Println("New client initiated\n ")
-			// create client bucket
-			clients[ip] = &Client{
-				Bucket: bucket.CreateBucket(10, 1),
+		var client *bucket.Client
+		if value, exists := clients[ip]; !exists {
+			clients[ip] = &bucket.Client{
+				Bucket: *bucket.CreateBucket(1, 1),
 			}
-
-			fmt.Println("created client", clients[ip])
-			fmt.Println("clients", &clients)
+			client = clients[ip]
 
 			// ---@routine -> start the bucket refill ()
-			//clients[ip].Bucket.StartRefillBucket()
+			//go client.Bucket.StartRefillBucket()
 		} else {
-			fmt.Println("Client retrieved, process continue...\n ")
+			client = value
+		}
+		client.LastSeen = time.Now()
+
+		if client.Bucket.Tokens == 0 {
+			fmt.Println(w, "Too many requests for IP: ", ip, "try after a minute")
+
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, err := fmt.Fprintf(w, "Too many requests for IP: %s", ip)
+			if err != nil {
+				return
+			}
+			return
+		} else {
+			// Decrement token for allowed request
+			client.Bucket.Tokens--
 		}
 
-		//fmt.Println("\t |---------- Clients(After) ----------|\n\t")
-		//for ipAddr, client := range clients {
-		//	fmt.Printf("\t IP: %s, Bucket: %+v\n", ipAddr, client.Bucket)
-		//}
-
-		clients[ip].LastSeen = time.Now()
-
-		//if clients[ip].Bucket.Tokens == 0 {
-		//	mu.Unlock()
-		//	w.WriteHeader(http.StatusTooManyRequests)
-		//	_, err := fmt.Fprintf(w, "Too many requests for IP: %s", ip)
-		//	if err != nil {
-		//		return
-		//	}
-		//	return
-		//}
-		
-		// Decrement token for allowed request
-		//clients[ip].Bucket.Tokens--
-		mu.Unlock()
 		next.ServeHTTP(w, r)
 	})
 }

@@ -12,3 +12,8 @@ type Bucket struct {
 	LastRefillTime time.Time
 	Mu             sync.Mutex
 }
+
+type Client struct {
+	Bucket
+	LastSeen time.Time
+}
