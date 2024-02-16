@@ -10,28 +10,41 @@ import (
 )
 
 var (
-	clients map[string]*bucket.Client
-	Mu      sync.Mutex
+	clients  map[string]*bucket.Client
+	Mu       sync.Mutex
+	stopChan chan struct{}
 )
 
 func init() {
 	clients = make(map[string]*bucket.Client)
+	stopChan = make(chan struct{})
 }
 
 func RateLimit(next http.Handler) http.Handler {
 	//---@routine -> kill old clients
 	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			Mu.Lock()
+		time.Sleep(time.Second)
 
+		fmt.Println("killer program is running")
+		for {
+			fmt.Println("for running")
+			Mu.Lock()
+			if len(clients) == 0 {
+				fmt.Println("deactivating killer...")
+				close(stopChan)
+				Mu.Unlock()
+				return
+			}
+
+			fmt.Println("Killer in action")
 			for ip, client := range clients {
-				if time.Since(client.LastSeen) > 1*time.Minute {
+				if time.Since(client.LastSeen) > 15*time.Second {
 					fmt.Println("\t Killed client...", ip)
 					delete(clients, ip)
 				}
 			}
 			Mu.Unlock()
+			time.Sleep(time.Second)
 		}
 	}()
 
@@ -45,9 +58,10 @@ func RateLimit(next http.Handler) http.Handler {
 		defer Mu.Unlock()
 
 		var client *bucket.Client
+		fmt.Println("\tconnected clients: ", clients)
 		if value, exists := clients[ip]; !exists {
 			clients[ip] = &bucket.Client{
-				Bucket: *bucket.CreateBucket(1, 1),
+				Bucket: *bucket.CreateBucket(5, 1),
 			}
 			client = clients[ip]
 
