@@ -10,7 +10,7 @@ type Bucket struct {
 	Tokens         int
 	RefillInterval time.Duration
 	LastRefillTime time.Time
-	Mu             sync.Mutex
+	Mu             sync.Mutex		
 }
 
 type Client struct {

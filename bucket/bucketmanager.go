@@ -25,7 +25,7 @@ func (bucket *Bucket) StartRefillBucket() {
 			// refill bucket if not full
 			if bucket.Tokens < bucket.Capacity {
 				bucket.Tokens++
-				fmt.Println("Token added. Total = ", bucket.Tokens)
+				fmt.Println("1 token added. Balance:", bucket.Tokens)
 			}
 			bucket.Mu.Unlock()
 		}
