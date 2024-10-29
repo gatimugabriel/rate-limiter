@@ -60,7 +60,7 @@ func RateLimit(next http.Handler) http.Handler {
 		fmt.Println("\tconnected clients: ", &clients)
 		if value, exists := clients[ip]; !exists {
 			clients[ip] = &bucket.Client{
-				Bucket: *bucket.CreateBucket(10, 1),
+				Bucket: *bucket.CreateBucket(10, 1*time.Second),
 			}
 			client = clients[ip]
 

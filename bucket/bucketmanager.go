@@ -9,7 +9,7 @@ func CreateBucket(capacity int, refillInterval time.Duration) *Bucket {
 	return &Bucket{
 		Capacity:       capacity,
 		Tokens:         capacity,
-		RefillInterval: time.Second * refillInterval,
+		RefillInterval: refillInterval,
 		LastRefillTime: time.Now(),
 	}
 }
